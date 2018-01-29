@@ -12,12 +12,13 @@ boolean record_flag, reset_flag, clear_flag;
 boolean [][] beat_boxes;
 
 /*********** Configuration Parameters **************/
-int midi_device = 0;  // default for Oxygen8
+int midi_device = 3; // default for Oxygen8
+int midi_clock = 3 ; //The port the daw is sending MIDI clocks to
 int desiredBPM = 160;  // set beat per minute rate
 int midi_inputs = 15;  // 15 piano keys (15 rows)
 int measures = 2;      // # of measures
 int beat_length = 8;  // 8th or 16th notes
-int screen = 1;        // display sketch on this screen
+int screen = 2;        // display sketch on this screen
 boolean enableKeyboard = false;  // for troubleshooting
 boolean newest_notes = false; // only newest notes will be shown 
 
@@ -29,6 +30,7 @@ void setup() {
   frameRate(frame_rate*frame_multiplier);
   MidiBus.list();
   keyboard = new MidiBus(this, midi_device, 0);
+  keyboard.addInput(midi_clock);
   reset();
   if (enableKeyboard) record_flag = true;
   println(frame_rate*frame_multiplier);
@@ -114,6 +116,17 @@ void reset() {
 }
 
 void midiMessage(MidiMessage message) { 
+  if (message.getStatus() == 176 & message.getMessage()[1] == 24) {                                 // if status byte is sending the song start value. Note control message change is status of 176
+    record_flag = reset_flag = true;
+    clear_flag = false;
+    reset_count = 0;
+  }
+  else if(message.getStatus() == 176 & message.getMessage()[1] == 23) {
+    ++reset_count;
+    record_flag = false;
+    reset_flag = clear_flag = true;
+  }
+  
   if (message.getMessage().length > 2) {                            // if valid data
     midi_note = (int)(message.getMessage()[1] & 0xFF);
     midi_press = (int)(message.getMessage()[2] & 0xFF);
@@ -179,7 +192,7 @@ void keyPressed() {
     record_flag = reset_flag = true;
     clear_flag = false;
     reset_count = 0;
-  } else if ((keyCode == 'r')||(keyCode == 'R')) {  // ASCII r or R for Reset
+  } if ((keyCode == 'r')||(keyCode == 'R')) {  // ASCII r or R for Reset
     ++reset_count;
     record_flag = false;
     reset_flag = clear_flag = true;
